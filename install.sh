@@ -59,6 +59,7 @@ run mkdir -p "$CLAUDE_DIR"
 echo
 echo "settings + hooks"
 link "$REPO/claude/settings.json" "$CLAUDE_DIR/settings.json"
+link "$REPO/claude/CLAUDE.md"     "$CLAUDE_DIR/CLAUDE.md"
 link "$REPO/claude/hooks"         "$CLAUDE_DIR/hooks"
 
 # Standalone skills authored/vendored here. Linked individually so gstack's own

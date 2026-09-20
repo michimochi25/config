@@ -23,17 +23,27 @@
       {
         "matcher": "(AskUserQuestion|mcp__.*__AskUserQuestion)",
         "hooks": [
-          { "type": "command", "command": "$HOME/.claude/hooks/gstack question-preference-hook", "timeout": 5 }
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/gstack question-preference-hook",
+            "timeout": 5
+          }
         ]
       },
       {
         "hooks": [
-          { "type": "command", "command": "$HOME/.claude/hooks/caveman" }
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/caveman"
+          }
         ]
       },
       {
         "hooks": [
-          { "type": "command", "command": "$HOME/.claude/hooks/caveman-shrink" }
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/caveman-shrink"
+          }
         ]
       }
     ],
@@ -41,50 +51,137 @@
       {
         "matcher": "(AskUserQuestion|mcp__.*__AskUserQuestion)",
         "hooks": [
-          { "type": "command", "command": "$HOME/.claude/hooks/gstack question-log-hook", "timeout": 5 }
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/gstack question-log-hook",
+            "timeout": 5
+          }
         ]
       },
       {
         "matcher": "(AskUserQuestion|mcp__.*__AskUserQuestion)",
         "hooks": [
-          { "type": "command", "command": "$HOME/.claude/hooks/gstack auq-error-fallback-hook", "timeout": 5 }
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/gstack auq-error-fallback-hook",
+            "timeout": 5
+          }
         ]
       },
       {
         "hooks": [
-          { "type": "command", "command": "$HOME/.claude/hooks/caveman" }
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/caveman"
+          }
         ]
       }
     ],
     "PostToolUseFailure": [
-      { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/caveman" } ] }
-    ],
-    "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/caveman" } ] }
-    ],
-    "SessionEnd": [
-      { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/caveman" } ] }
-    ],
-    "UserPromptSubmit": [
-      { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/caveman" } ] }
-    ],
-    "PreCompact": [
-      { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/caveman" } ] }
-    ],
-    "PostCompact": [
-      { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/caveman" } ] }
-    ],
-    "SubagentStart": [
-      { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/caveman" } ] }
-    ],
-    "SubagentStop": [
-      { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/caveman" } ] }
-    ],
-    "Stop": [
-      { "hooks": [ { "type": "command", "command": "$HOME/.claude/hooks/caveman" } ] },
       {
         "hooks": [
-          { "type": "command", "command": "$HOME/.claude/hooks/gstack timeline-stop-hook", "timeout": 5 }
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/caveman"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/caveman"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/caveman"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/caveman"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/caveman"
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/caveman"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/caveman"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/caveman"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/caveman"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/gstack timeline-stop-hook",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/notify-sound",
+            "async": true
+          }
         ]
       }
     ]

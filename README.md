@@ -17,7 +17,8 @@ on its own.
 | Path | Installed to | What it is |
 | --- | --- | --- |
 | `claude/settings.json` | `~/.claude/settings.json` | Model, effort, theme, plugins, hooks |
-| `claude/hooks/` | `~/.claude/hooks/` | Guarded wrappers for the caveman and gstack hooks |
+| `claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | Global working agreement, loaded into every session |
+| `claude/hooks/` | `~/.claude/hooks/` | Guarded wrappers for the caveman and gstack hooks, plus the turn-finished chime |
 | `claude/skills/` | `~/.claude/skills/<name>` | Standalone skills (currently `playwright-cli`) |
 | `claude/mcp/servers.json` | merged into `~/.claude.json` | Local MCP servers |
 | `claude/local/caveman.env` | *(opt-in, see below)* | Local proxy env vars, off by default |
@@ -41,6 +42,33 @@ destination are moved aside to `<name>.backup-<timestamp>` first. Use
 - **`.credentials.json`, `history.jsonl`, `sessions/`, `projects/`,
   `shell-snapshots/`** — secrets and private conversation history. These must
   never be committed; `.gitignore` guards the repo root against them.
+
+## The global CLAUDE.md
+
+`claude/CLAUDE.md` is user-level memory: Claude Code loads it into *every*
+session on this machine, so it stays short and holds only things true across
+all projects. A project's own `CLAUDE.md` overrides it.
+
+Its contents are derived from existing per-project memories rather than
+invented — leading with a recommendation, staying inside the requested scope,
+verifying at the process rather than the config, and no co-author trailers. The
+skill-routing table was duplicated verbatim in two project files; it describes
+which tools are installed on the machine, so it belongs here instead.
+
+## The finish chime
+
+The `Stop` hook runs `claude/hooks/notify-sound` when Claude finishes a turn.
+It tries `afplay`, then `paplay`/`pw-play`, then PowerShell, then the terminal
+bell, and exits 0 whichever way it goes — a machine with no working audio stays
+silent rather than erroring once per turn.
+
+On WSL2 only the PowerShell path works: there is no PipeWire daemon and no ALSA
+card, so `pw-play` and `aplay` both fail. That route costs ~0.5s of PowerShell
+startup plus the length of the clip, so the hook is marked `"async": true` and
+does not hold up the end of a turn.
+
+`Stop` also fires on `/clear`, resume and compact, so those chime too. To change
+the sound, edit the three `*_SOUND` constants at the top of the script.
 
 ## Bootstrap the rest
 

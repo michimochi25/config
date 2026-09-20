@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Chime when Claude finishes a turn.
+#
+# Wired to the Stop hook with "async": true — every backend blocks for the
+# length of the clip (~2.2s via PowerShell on WSL, which also pays a ~0.5s
+# startup), and that would otherwise be added to the end of every turn.
+#
+# Tries each backend in order and exits 0 either way: a machine with no working
+# audio should not raise a hook error on every single turn.
+set -u
+
+# A short, notification-shaped clip per platform.
+MAC_SOUND=/System/Library/Sounds/Glass.aiff
+LINUX_SOUND=/usr/share/sounds/freedesktop/stereo/complete.oga
+WIN_SOUND='C:\Windows\Media\ding.wav'
+
+play() { "$@" >/dev/null 2>&1; }
+
+# Native audio first.
+if command -v afplay >/dev/null 2>&1 && [ -r "$MAC_SOUND" ]; then
+  play afplay "$MAC_SOUND" && exit 0
+fi
+if [ -r "$LINUX_SOUND" ]; then
+  command -v paplay  >/dev/null 2>&1 && play paplay  "$LINUX_SOUND" && exit 0
+  command -v pw-play >/dev/null 2>&1 && play pw-play "$LINUX_SOUND" && exit 0
+fi
+
+# WSL has neither a PipeWire daemon nor an ALSA card, so go out through Windows.
+if command -v powershell.exe >/dev/null 2>&1; then
+  play powershell.exe -NoProfile -c \
+    "(New-Object Media.SoundPlayer '$WIN_SOUND').PlaySync()" && exit 0
+fi
+
+# Nothing else worked: terminal bell. stderr is redirected BEFORE /dev/tty:
+# redirections apply left to right, and without a controlling tty the open
+# fails, so the shell's own error would otherwise reach stderr once per turn.
+printf '\a' 2>/dev/null >/dev/tty
+exit 0
