@@ -1,4 +1,4 @@
-# dotfiles
+# config
 
 Portable Claude Code configuration, so the same setup works on a personal and a
 work machine.
