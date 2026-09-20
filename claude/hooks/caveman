@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Guarded wrapper for the caveman native hook.
+#
+# settings.json wires this into every hook event. On a machine without caveman
+# installed it exits 0 silently, so the entries are inert rather than erroring
+# on each tool call. Resolves the CLI adapter from whatever Node the `caveman`
+# shim lives under, so no Node version is pinned.
+set -u
+
+proxy="$HOME/.caveman/bin/caveman-proxy"
+[ -x "$proxy" ] || exit 0
+
+cli="$(command -v caveman 2>/dev/null)" || exit 0
+[ -n "$cli" ] || exit 0
+
+# npm installs `caveman` as a symlink into the package; resolving it lands on
+# <pkg>/dist/index.js, and the hook adapter sits beside it.
+adapter="$(dirname "$(readlink -f "$cli")")/native-hook-fast.js"
+[ -f "$adapter" ] || exit 0
+
+exec "$proxy" native-hook claude --adapter "$adapter"

@@ -1,0 +1,44 @@
+# Authored config lives under /claude. Everything below is a guard against
+# accidentally copying ~/.claude runtime state into the repo root: secrets,
+# private history, machine state, and reinstallable third-party code.
+#
+# All patterns are anchored to the repo root so they never swallow /claude.
+
+# Secrets / account identity
+/.credentials.json
+/.claude.json
+
+# Private conversation + session history
+/history.jsonl
+/sessions/
+/projects/
+/shell-snapshots/
+/paste-cache/
+/file-history/
+/todos/
+
+# Machine state & caches
+/cache/
+/daemon/
+/daemon.*
+/debug/
+/downloads/
+/ide/
+/jobs/
+/plans/
+/session-env/
+/backups/
+/.last-cleanup
+/.last-update-result.json
+/mcp-needs-auth-cache.json
+
+# Reinstallable third-party code (see README bootstrap)
+/skills/
+/plugins/
+
+# Backups left by install.sh or Claude Code
+*.backup-*
+*.bak
+*.bak-latest
+*.bak.*
+/.dotfiles-backups/

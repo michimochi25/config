@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Guarded wrapper for `caveman shrink-hook` (PreToolUse context compression).
+# Exits 0 silently when caveman is not installed.
+set -u
+
+cli="$(command -v caveman 2>/dev/null)" || exit 0
+[ -n "$cli" ] || exit 0
+
+exec "$cli" shrink-hook

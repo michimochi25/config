@@ -1,0 +1,8 @@
+{
+  "caveman": {
+    "type": "stdio",
+    "command": "${HOME}/.caveman/bin/caveman-mcp",
+    "args": [],
+    "env": {}
+  }
+}

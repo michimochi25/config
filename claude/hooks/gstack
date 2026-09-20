@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Guarded dispatcher for gstack's Claude Code hooks.
+#
+# Usage: gstack <hook-name>
+# Exits 0 silently when the gstack skill is not installed, so settings.json can
+# reference these unconditionally. The gstack hooks themselves already fail open.
+set -u
+
+name="${1:-}"
+[ -n "$name" ] || exit 0
+
+target="$HOME/.claude/skills/gstack/hosts/claude/hooks/$name"
+[ -x "$target" ] || exit 0
+
+exec "$target"
