@@ -15,6 +15,20 @@ LINUX_SOUND=/usr/share/sounds/freedesktop/stereo/complete.oga
 # Not ding.wav: it peaks at ~2% of full scale and is inaudible at normal volume.
 WIN_SOUND='C:\Windows\Media\Windows Notify System Generic.wav'
 
+# A custom clip next to this script overrides all three. It must be an
+# uncompressed .wav: that is the one format afplay, paplay, pw-play and
+# Windows' SoundPlayer can all play.
+CUSTOM_SOUND="$(dirname "$0")/notify-sound.wav"
+if [ -r "$CUSTOM_SOUND" ]; then
+  MAC_SOUND=$CUSTOM_SOUND
+  LINUX_SOUND=$CUSTOM_SOUND
+  # Windows can't open a Linux path; wslpath gives the \\wsl.localhost\... form.
+  # It only exists on WSL, and powershell.exe is absent everywhere else anyway.
+  if WSL_PATH=$(wslpath -w "$CUSTOM_SOUND" 2>/dev/null); then
+    WIN_SOUND=$WSL_PATH
+  fi
+fi
+
 play() { "$@" >/dev/null 2>&1; }
 
 # Native audio first.
