@@ -2,22 +2,7 @@
   "env": {
     "ENABLE_TOOL_SEARCH": "auto"
   },
-  "model": "opus[1m]",
-  "effortLevel": "high",
-  "theme": "dark",
-  "preferredNotifChannel": "terminal_bell",
-  "enabledPlugins": {
-    "frontend-design@claude-plugins-official": true,
-    "agent-skills@addy-agent-skills": true
-  },
-  "extraKnownMarketplaces": {
-    "addy-agent-skills": {
-      "source": {
-        "source": "github",
-        "repo": "addyosmani/agent-skills"
-      }
-    }
-  },
+  "model": "opus",
   "hooks": {
     "PreToolUse": [
       {
@@ -197,5 +182,20 @@
         ]
       }
     ]
-  }
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "agent-skills@addy-agent-skills": true
+  },
+  "extraKnownMarketplaces": {
+    "addy-agent-skills": {
+      "source": {
+        "source": "github",
+        "repo": "addyosmani/agent-skills"
+      }
+    }
+  },
+  "effortLevel": "high",
+  "theme": "dark",
+  "preferredNotifChannel": "terminal_bell"
 }
