@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 #
-# Apply this repo's Claude Code config to ~/.claude.
+# Apply this repo's Claude Code config to ~/.claude, plus shared shell aliases.
 #
 # Symlinks authored config into place so that edits made via /config flow back
 # into git. Existing real files are backed up, never overwritten in place.
 #
-#   ./install.sh                 # settings + hooks + MCP servers
-#   ./install.sh --with-caveman  # also enable the local caveman proxy in ~/.bashrc
-#   ./install.sh --dry-run       # show what would happen, change nothing
+#   ./install.sh            # settings, hooks, MCP servers, aliases, caveman proxy
+#   ./install.sh --dry-run  # show what would happen, change nothing
 #
 set -euo pipefail
 
@@ -19,13 +18,11 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 # skill gets picked up by Claude Code as a second, duplicate skill.
 BACKUP_DIR="$CLAUDE_DIR/.dotfiles-backups/$STAMP"
 
-WITH_CAVEMAN=0
 DRY_RUN=0
 for arg in "$@"; do
   case "$arg" in
-    --with-caveman) WITH_CAVEMAN=1 ;;
-    --dry-run)      DRY_RUN=1 ;;
-    -h|--help)      sed -n '2,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --dry-run) DRY_RUN=1 ;;
+    -h|--help) sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $arg (try --help)" >&2; exit 2 ;;
   esac
 done
@@ -49,6 +46,27 @@ link() {
   fi
   run ln -s "$src" "$dest"
   say "link: $dest -> $src"
+}
+
+# Append a line sourcing $2 to file $1 (once), under comment $3.
+# Used instead of link() for shell files a machine may already have its own
+# content in: that content stays, ours is loaded alongside it.
+ensure_sourced() {
+  local file="$1" src="$2" label="$3"
+  # Also accept the ~/… spelling: older docs told people to add it by hand.
+  local tilde_src="~${src#"$HOME"}"
+  if grep -Fqs -e "$src" -e "$tilde_src" "$file"; then
+    say "ok:   $file already sources $src"
+    return
+  fi
+  # Guarded, so moving or deleting the repo doesn't break every new shell.
+  local line="[ -f \"$src\" ] && . \"$src\""
+  if [ "$DRY_RUN" -eq 1 ]; then
+    say "would: append '$line' to $file"
+    return
+  fi
+  printf '\n# %s\n%s\n' "$label" "$line" >> "$file"
+  say "added: $file now sources $src"
 }
 
 echo "Installing Claude Code config from $REPO"
@@ -112,20 +130,21 @@ PY
 fi
 
 echo
-echo "caveman proxy (optional)"
-RC="$HOME/.bashrc"
-SOURCE_LINE="source \"$REPO/claude/local/caveman.env\""
-if [ "$WITH_CAVEMAN" -eq 1 ]; then
-  if [ -f "$RC" ] && grep -Fqs "claude/local/caveman.env" "$RC"; then
-    say "ok:   already enabled in $RC"
-  else
-    run bash -c "printf '\n# Claude Code: local caveman proxy (dotfiles)\n%s\n' '$SOURCE_LINE' >> '$RC'"
-    say "added: $RC now sources claude/local/caveman.env"
-    say "note: start a new shell, and make sure the proxy is running"
-  fi
-else
-  say "skipped (pass --with-caveman to enable)"
+echo "shell aliases"
+ensure_sourced "$HOME/.bash_aliases" "$REPO/shell/bash_aliases" "Shared aliases (dotfiles)"
+# Debian/Ubuntu's default ~/.bashrc loads ~/.bash_aliases; other setups may not,
+# in which case the aliases would silently never load. Comments are skipped:
+# Debian's bashrc also mentions .bash_aliases in a comment above the real load.
+if ! grep -v '^[[:space:]]*#' "$HOME/.bashrc" 2>/dev/null | grep -Fq ".bash_aliases"; then
+  say "note: ~/.bashrc doesn't load ~/.bash_aliases — add this to it:"
+  say "      [ -f ~/.bash_aliases ] && . ~/.bash_aliases"
 fi
+
+echo
+echo "caveman proxy"
+# Safe to apply everywhere: caveman.env only redirects the API when caveman is
+# installed, so on a machine without it Claude Code talks to the API directly.
+ensure_sourced "$HOME/.bashrc" "$REPO/claude/local/caveman.env" "Claude Code: local caveman proxy (dotfiles)"
 
 cat <<EOF
 
