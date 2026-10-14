@@ -12,7 +12,8 @@ set -u
 # A short, notification-shaped clip per platform.
 MAC_SOUND=/System/Library/Sounds/Glass.aiff
 LINUX_SOUND=/usr/share/sounds/freedesktop/stereo/complete.oga
-WIN_SOUND='C:\Windows\Media\ding.wav'
+# Not ding.wav: it peaks at ~2% of full scale and is inaudible at normal volume.
+WIN_SOUND='C:\Windows\Media\Windows Notify System Generic.wav'
 
 play() { "$@" >/dev/null 2>&1; }
 
