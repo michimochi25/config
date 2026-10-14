@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# Tests for install.sh's shell-file handling and the caveman readiness check.
-# Each case runs against a throwaway $HOME, so the real one is never touched.
+# Tests for install.sh (shell files, tool installs) and the caveman readiness
+# check. Each case runs against a throwaway $HOME and a sandbox PATH where
+# npm, git and bun are fakes, so nothing real is installed or downloaded.
 #
 #   ./tests/install_test.sh
 #
@@ -12,6 +13,18 @@ SCRATCH="$(mktemp -d)"
 trap 'rm -rf "$SCRATCH"' EXIT
 # Never let a test fall through to the real ~/.claude.
 unset CLAUDE_CONFIG_DIR
+
+PIN_CAVEMAN="$(sed -n 's/^CAVEMAN_VERSION="\(.*\)"/\1/p' "$REPO/install.sh")"
+PIN_GSTACK="$(sed -n 's/^GSTACK_REF="\([^"]*\)".*/\1/p' "$REPO/install.sh")"
+
+# System tools minus the ones under test, so a real git/npm/caveman can't leak in.
+SYSBIN="$SCRATCH/sysbin"
+mkdir -p "$SYSBIN"
+for f in /usr/bin/* /bin/*; do
+  n="${f##*/}"
+  case "$n" in git|npm|npx|node|bun|caveman) continue ;; esac
+  [ -x "$f" ] && [ ! -e "$SYSBIN/$n" ] && ln -s "$f" "$SYSBIN/$n"
+done
 
 PASS=0 FAIL=0
 ok()   { PASS=$((PASS + 1)); printf '  ok    %s\n' "$1"; }
@@ -25,8 +38,59 @@ new_home() {
   D="$H/dotfiles"
   mkdir -p "$D"
   cp -r "$REPO/install.sh" "$REPO/claude" "$REPO/shell" "$D/"
+  fake_tools
 }
 N=0
+
+# Fake npm/git/bun in ~/bin. Each logs its calls to ~/calls. Touch ~/npm-fails or
+# ~/setup-fails to make that step fail. Like the real installers, the fakes edit
+# ~/.claude/settings.json: caveman writes through the symlink, gstack's setup
+# replaces the file atomically (which turns the symlink into a real file).
+fake_tools() {
+  mkdir -p "$H/bin"
+  cat > "$H/bin/npm" <<'FAKE'
+#!/bin/bash
+echo "npm $*" >> "$HOME/calls"
+[ -e "$HOME/npm-fails" ] && exit 1
+args="$*"; echo "${args##*@}" > "$HOME/.fake-caveman-version"
+cat > "$HOME/bin/caveman" <<'CAVE'
+#!/bin/bash
+echo "caveman $*" >> "$HOME/calls"
+case "$1" in
+  version) printf '{\n  "version": "%s"\n}\n' "$(cat "$HOME/.fake-caveman-version")" ;;
+  setup)
+    mkdir -p "$HOME/.caveman/bin"
+    printf '#!/bin/sh\n' > "$HOME/.caveman/bin/caveman-proxy"
+    chmod +x "$HOME/.caveman/bin/caveman-proxy"
+    f="$HOME/.claude/settings.json"
+    [ -e "$f" ] && { c="$(cat "$f")"; printf '%s\n"ANTHROPIC_BASE_URL from caveman"\n' "$c" > "$f"; } ;;
+esac
+CAVE
+chmod +x "$HOME/bin/caveman"
+FAKE
+  cat > "$H/bin/git" <<'FAKE'
+#!/bin/bash
+echo "git $*" >> "$HOME/calls"
+if [ "$1" = clone ]; then
+  dir="${@: -1}"; mkdir -p "$dir"
+  cat > "$dir/setup" <<'SETUP'
+#!/bin/bash
+echo "gstack-setup in $PWD" >> "$HOME/calls"
+[ -e "$HOME/setup-fails" ] && exit 1
+f="$HOME/.claude/settings.json"
+{ cat "$f"; echo '"hook from gstack"'; } > "$f.tmp" && mv "$f.tmp" "$f"
+SETUP
+  chmod +x "$dir/setup"
+elif [ "$1" = -C ]; then
+  case "$3" in
+    reset)     echo "${@: -1}" > "$2/.ref" ;;
+    rev-parse) cat "$2/.ref" ;;
+  esac
+fi
+FAKE
+  printf '#!/bin/sh\n' > "$H/bin/bun"
+  chmod +x "$H/bin/npm" "$H/bin/git" "$H/bin/bun"
+}
 
 # Debian-style bashrc: mentions .bash_aliases in a comment AND really loads it.
 debian_bashrc() {
@@ -38,8 +102,13 @@ fi
 EOF
 }
 
-install() { HOME="$H" "$D/install.sh" "$@" 2>&1; }
+install() { HOME="$H" PATH="$H/bin:$SYSBIN" "$D/install.sh" "$@" 2>&1; }
 count() { grep -c "$1" "$2" 2>/dev/null || true; }
+# settings.json still a symlink to the repo copy, with the repo copy unchanged.
+settings_intact() {
+  [ "$(readlink -f "$H/.claude/settings.json")" = "$(readlink -f "$D/claude/settings.json")" ] \
+    && cmp -s "$D/claude/settings.json" "$REPO/claude/settings.json"
+}
 
 echo "install.sh"
 
@@ -80,6 +149,68 @@ before="$(cat "$H/.bashrc")"
 install --dry-run >/dev/null
 check "dry run leaves ~/.bashrc unchanged" test "$before" = "$(cat "$H/.bashrc")"
 check "dry run creates no ~/.bash_aliases" test ! -e "$H/.bash_aliases"
+
+echo "tools"
+
+new_home; debian_bashrc
+out="$(install)"; rc=$?
+check "fresh: exits 0" test "$rc" -eq 0
+check "fresh: installs the pinned caveman CLI" \
+  grep -Fqx "npm install -g @caveman-ai/cli@$PIN_CAVEMAN" "$H/calls"
+check "fresh: runs caveman setup --install" grep -Fqx "caveman setup --install" "$H/calls"
+check "fresh: clones gstack's main branch" \
+  grep -Fq -- "--branch main https://github.com/garrytan/gstack.git $H/.claude/skills/gstack" "$H/calls"
+check "fresh: resets gstack to the pinned commit" \
+  grep -Fqx "git -C $H/.claude/skills/gstack reset -q --hard $PIN_GSTACK" "$H/calls"
+check "fresh: runs gstack setup from inside its dir" \
+  grep -Fqx "gstack-setup in $H/.claude/skills/gstack" "$H/calls"
+check "fresh: installers' settings.json edits are reverted" settings_intact
+check "fresh: the reverted edits are shown" grep -q '+"hook from gstack"' <<<"$out"
+
+rm "$H/calls"
+out="$(install)"
+check "re-run: installs nothing again" \
+  not grep -q -e '^npm' -e 'clone' -e 'reset' -e 'setup' "$H/calls"
+check "re-run: reports both as ok at the pin" \
+  bash -c 'grep -q "ok:   caveman $1" <<<"$3" && grep -q "ok:   gstack ${2:0:7}" <<<"$3"' _ "$PIN_CAVEMAN" "$PIN_GSTACK" "$out"
+
+new_home; debian_bashrc
+echo 9.9.9 > "$H/.fake-caveman-version"
+HOME="$H" PATH="$H/bin:$SYSBIN" bash -c 'npm install -g @caveman-ai/cli@9.9.9 >/dev/null; caveman setup >/dev/null'
+mkdir -p "$H/.claude/skills/gstack" && echo 1234567deadbeef > "$H/.claude/skills/gstack/.ref"
+rm "$H/calls"
+out="$(install)"
+check "other versions installed: left alone" not grep -q -e '^npm' -e 'clone' -e 'reset' "$H/calls"
+check "other versions installed: noted against the pin" \
+  test "$(grep -c 'left as is' <<<"$out")" -eq 2
+
+new_home; debian_bashrc
+rm "$H/bin/npm" "$H/bin/bun"
+out="$(install)"; rc=$?
+check "no npm/bun: tools skipped with a hint" \
+  bash -c 'grep -q "skip: caveman needs Node + npm" <<<"$1" && grep -q "skip: gstack needs bun" <<<"$1"' _ "$out"
+check "no npm/bun: still exits 0" test "$rc" -eq 0
+check "no npm/bun: nothing installed" not test -e "$H/.claude/skills/gstack" -o -e "$H/.caveman"
+
+new_home; debian_bashrc
+touch "$H/npm-fails"
+out="$(install)"; rc=$?
+check "caveman install fails: exits 1" test "$rc" -eq 1
+check "caveman install fails: reported" grep -q "fail: caveman" <<<"$out"
+check "caveman install fails: gstack still installed" grep -q "^gstack-setup" "$H/calls"
+
+new_home; debian_bashrc
+touch "$H/setup-fails"
+out="$(install)"; rc=$?
+check "gstack setup fails: exits 1" test "$rc" -eq 1
+check "gstack setup fails: half-install removed so a re-run retries" \
+  not test -e "$H/.claude/skills/gstack"
+check "gstack setup fails: settings.json still restored" settings_intact
+
+new_home; debian_bashrc
+install --dry-run >/dev/null
+check "dry run: calls no installer" not test -e "$H/calls"
+check "dry run: settings.json not linked" not test -e "$H/.claude/settings.json"
 
 echo "caveman --check / caveman.env"
 

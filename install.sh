@@ -5,7 +5,7 @@
 # Symlinks authored config into place so that edits made via /config flow back
 # into git. Existing real files are backed up, never overwritten in place.
 #
-#   ./install.sh            # settings, hooks, MCP servers, aliases, caveman proxy
+#   ./install.sh            # settings, hooks, MCP, aliases, caveman + gstack
 #   ./install.sh --dry-run  # show what would happen, change nothing
 #
 set -euo pipefail
@@ -17,6 +17,14 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 # Backups live outside skills/, agents/ and commands/ — a backup left beside a
 # skill gets picked up by Claude Code as a second, duplicate skill.
 BACKUP_DIR="$CLAUDE_DIR/.dotfiles-backups/$STAMP"
+
+# Versions a fresh machine gets. An existing install is never changed to match:
+# it may have been upgraded on purpose (gstack upgrades itself via /gstack-upgrade).
+# Bump these deliberately — claude/hooks/caveman depends on caveman's file layout.
+CAVEMAN_VERSION="1.2.1"
+GSTACK_REF="85fd9db554ae4aaaa6d356d2daf873121ee85bdd"  # v1.68.3.0
+GSTACK_REPO="https://github.com/garrytan/gstack.git"
+GSTACK_DIR="$CLAUDE_DIR/skills/gstack"
 
 DRY_RUN=0
 for arg in "$@"; do
@@ -69,6 +77,86 @@ ensure_sourced() {
   say "added: $file now sources $src"
 }
 
+# Like run(), but inside directory $1.
+run_in() {
+  local dir="$1"; shift
+  if [ "$DRY_RUN" -eq 1 ]; then say "would: (cd $dir && $*)"; else (cd "$dir" && "$@"); fi
+}
+
+# Run "$@", then undo any change it made to settings.json and show what it tried.
+# Third-party installers write there, but it is this repo's file (via symlink),
+# and caveman's edit — an unconditional proxy URL — would break machines without it.
+protect_settings() {
+  local live="$CLAUDE_DIR/settings.json" own="$REPO/claude/settings.json" snap rc=0
+  # Nothing gets installed in a dry run, and settings.json may not be linked yet.
+  if [ "$DRY_RUN" -eq 1 ]; then "$@"; return; fi
+  snap="$(mktemp)"
+  cp "$own" "$snap"
+  "$@" || rc=$?
+  if ! cmp -s "$snap" "$live" || ! cmp -s "$snap" "$own"; then
+    say "note: reverted its edits to settings.json — copy across by hand if wanted:"
+    diff -u "$snap" "$live" | sed 's/^/        /' || true
+    cat "$snap" > "$own"
+    # An installer that writes atomically replaces our symlink with a real file.
+    if [ "$(readlink -f "$live")" != "$(readlink -f "$own")" ]; then
+      rm -f "$live" && ln -s "$own" "$live"
+    fi
+  fi
+  rm -f "$snap"
+  return "$rc"
+}
+
+# Install the caveman CLI and/or its native binaries, whichever is missing.
+# Steps are chained with && because callers run this where `set -e` is off.
+install_caveman() {
+  local proxy="$HOME/.caveman/bin/caveman-proxy" have
+  if command -v caveman >/dev/null && [ -x "$proxy" ]; then
+    have="$(caveman version 2>/dev/null | sed -n 's/.*"version": *"\([^"]*\)".*/\1/p')"
+    if [ "$have" = "$CAVEMAN_VERSION" ]; then say "ok:   caveman $have"
+    else say "ok:   caveman ${have:-?} (pin is $CAVEMAN_VERSION; left as is)"; fi
+    return
+  fi
+  if ! command -v caveman >/dev/null; then
+    if ! command -v npm >/dev/null; then
+      say "skip: caveman needs Node + npm — install Node (e.g. via nvm), then re-run"
+      return
+    fi
+    run npm install -g "@caveman-ai/cli@$CAVEMAN_VERSION" || return
+    hash -r
+    if [ "$DRY_RUN" -eq 0 ] && ! command -v caveman >/dev/null; then
+      say "fail: npm installed caveman, but npm's global bin dir isn't on PATH"
+      return 1
+    fi
+  fi
+  run caveman setup --install
+}
+
+# Clone gstack at the pinned commit and run its setup. Stays on branch main
+# (reset, not checkout) so /gstack-upgrade can still fast-forward it later.
+install_gstack() {
+  local have tool
+  if [ -d "$GSTACK_DIR" ]; then
+    have="$(git -C "$GSTACK_DIR" rev-parse HEAD 2>/dev/null || true)"
+    if [ "$have" = "$GSTACK_REF" ]; then say "ok:   gstack ${have:0:7}"
+    else say "ok:   gstack ${have:0:7} (pin is ${GSTACK_REF:0:7}; left as is)"; fi
+    return
+  fi
+  for tool in git bun; do
+    if ! command -v "$tool" >/dev/null; then
+      say "skip: gstack needs $tool — install it (Bun: https://bun.sh), then re-run"
+      return
+    fi
+  done
+  # setup runs from inside its own dir, as gstack's docs do it.
+  if ! { run git clone -q --single-branch --branch main "$GSTACK_REPO" "$GSTACK_DIR" \
+        && run git -C "$GSTACK_DIR" reset -q --hard "$GSTACK_REF" \
+        && run_in "$GSTACK_DIR" ./setup; }; then
+    # Remove the half-install, or the next run would see the dir and skip it.
+    rm -rf "$GSTACK_DIR"
+    return 1
+  fi
+}
+
 echo "Installing Claude Code config from $REPO"
 [ "$DRY_RUN" -eq 1 ] && echo "(dry run — nothing will change)"
 
@@ -89,6 +177,15 @@ for skill in "$REPO"/claude/skills/*/; do
   [ -d "$skill" ] || continue
   link "${skill%/}" "$CLAUDE_DIR/skills/$(basename "$skill")"
 done
+
+# A tool that fails to install is reported and the rest carries on; the script
+# then exits non-zero so the failure isn't missed. Runs before the MCP merge so
+# our servers.json has the last word over caveman's own MCP entry.
+echo
+echo "tools"
+FAILED=0
+protect_settings install_caveman || { say "fail: caveman install failed (see above)"; FAILED=1; }
+protect_settings install_gstack  || { say "fail: gstack install failed (see above)"; FAILED=1; }
 
 # MCP servers live in ~/.claude.json alongside a lot of machine state, so merge
 # our entries in rather than replacing the file.
@@ -150,5 +247,6 @@ cat <<EOF
 
 Done. Not handled here — see README:
   - plugins and synced skills install themselves on next \`claude\` launch
-  - gstack and caveman are separate installs
+  - Node/npm and Bun are prerequisites, not installed by this script
 EOF
+exit "$FAILED"

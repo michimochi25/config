@@ -41,26 +41,42 @@ Both files are loaded only by interactive shells — the stock `~/.bashrc` exits
 early otherwise — so a `claude` started from a script or cron gets neither the
 aliases nor the proxy.
 
-## Bootstrap the rest
+## Tools: gstack and caveman
 
-Neither of these is a Claude Code setting, so `install.sh` leaves them alone.
-Both are optional — the hook wrappers exit quietly when either is missing, so a
-work machine without them runs fine.
+`install.sh` also installs these two, on every machine:
 
-**gstack** (requires Bun) — supplies `/ship`, `/review`, `/browse`, `/qa` and
-the rest of the suite, plus the four hooks referenced in `settings.json`:
+- **gstack** — supplies `/ship`, `/review`, `/browse`, `/qa` and the rest of the
+  suite, plus the hooks referenced in `settings.json`. Needs git and Bun.
+- **caveman** — context compression. Provides the `caveman-mcp` server that
+  `claude/mcp/servers.json` points at, the `@caveman-ai/cli` hook adapter, and
+  the proxy below. Needs Node + npm.
 
-```bash
-git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack \
-  && cd ~/.claude/skills/gstack && ./setup
-```
+How it behaves:
 
-**caveman** — context compression. Provides the `caveman-mcp` server that
-`claude/mcp/servers.json` points at, and the `@caveman-ai/cli` hook adapter.
+- **Pinned for fresh installs.** `CAVEMAN_VERSION` and `GSTACK_REF` at the top
+  of `install.sh` are what a new machine gets. gstack is cloned on `main` and
+  reset to the pin, so `/gstack-upgrade` can still fast-forward it.
+- **Existing installs are left alone**, even at a different version — they may
+  have been upgraded on purpose. A note shows the difference.
+- **Missing prerequisites are reported, not installed.** No Node or Bun means
+  that tool is skipped with a hint; the rest of the install carries on. Install
+  the prerequisite and re-run.
+- **settings.json stays the repo's.** Both tools' own installers edit
+  `~/.claude/settings.json` (caveman adds the proxy URL unconditionally, gstack
+  registers hooks). Since that file is this repo's, `install.sh` reverts their
+  edits and prints the diff, so you can copy across anything worth keeping.
+- **A failed install** is reported and makes `install.sh` exit non-zero; a
+  half-cloned gstack is removed so the next run retries.
+
+Both stay optional at runtime: the hook wrappers exit quietly when either tool
+is missing, so a machine where they were skipped still works.
+
+Because caveman is installed everywhere, every machine with Node ends up
+routing API traffic through the caveman proxy (see below).
 
 ## The caveman proxy
 
-The personal machine routes all API traffic through a local caveman proxy
+A machine with caveman installed routes all API traffic through a local proxy
 (`ANTHROPIC_BASE_URL=http://127.0.0.1:8787/w/claude`). That only works when the
 proxy can run, so it is kept out of `settings.json` and lives in
 `claude/local/caveman.env`, which `install.sh` sources from `~/.bashrc` on every
