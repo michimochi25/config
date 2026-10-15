@@ -134,9 +134,12 @@ whenever a step edits your shell startup files.
    ```bash
    touch ~/.zshrc   # nvm's installer only edits a startup file that already exists
    # install nvm: https://github.com/nvm-sh/nvm#installing-and-updating — then, in a new terminal:
-   nvm install 20 && nvm alias default 20
+   nvm install 24 && nvm alias default 24
    npm install -g vercel @playwright/cli
    ```
+   Homebrew's `nvm` (`brew install nvm`) also works, though nvm doesn't
+   officially support it: it edits no startup file, so add the lines from
+   `brew info nvm` to `~/.zshrc` yourself, still above this repo's lines.
 6. **Rust**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 7. **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash`
 8. **This config**, then prove it works on this machine:

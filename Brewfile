@@ -2,7 +2,7 @@
 #   brew bundle --file ~/projects/dotfiles/Brewfile
 #
 # Deliberately NOT here — each uses its official installer (see README):
-#   nvm + Node   nvm doesn't support a Homebrew install
+#   nvm + Node   nvm doesn't officially support a Homebrew install (it works; see README)
 #   rustup       Homebrew's is keg-only, so cargo/rustc wouldn't be on PATH
 #   Claude Code  the native installer keeps it auto-updating
 #   vercel       not in Homebrew; it's an npm global
