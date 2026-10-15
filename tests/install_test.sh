@@ -352,7 +352,8 @@ echo "vs code"
 new_home
 out="$(install)"
 check "linux: skipped with a note" grep -q "skip: macOS only" <<<"$out"
-check "linux: nothing created under ~/Library" not test -e "$H/Library"
+# Only VS Code's own dir: on macOS, /usr/bin/python3 (the MCP merge) caches under ~/Library.
+check "linux: no VS Code settings created" not test -e "$H/Library/Application Support/Code"
 check "linux: code never called" not grep -qs '^code' "$H/calls"
 
 new_home; mac
