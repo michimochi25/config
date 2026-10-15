@@ -2,7 +2,7 @@
   "env": {
     "ENABLE_TOOL_SEARCH": "auto"
   },
-  "model": "opus",
+  "model": "opus[1m]",
   "hooks": {
     "PreToolUse": [
       {
