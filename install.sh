@@ -55,9 +55,12 @@ link() {
     fi
     run rm "$dest"
   elif [ -e "$dest" ]; then
-    run mkdir -p "$BACKUP_DIR"
-    run mv "$dest" "$BACKUP_DIR/$(basename "$dest")"
-    say "saved: $dest -> $BACKUP_DIR/$(basename "$dest")"
+    # Mirror the path under $HOME: two files share the basename settings.json
+    # (Claude's and VS Code's), and a flat backup would overwrite one with the other.
+    local saved="$BACKUP_DIR/${dest#"$HOME"/}"
+    run mkdir -p "$(dirname "$saved")"
+    run mv "$dest" "$saved"
+    say "saved: $dest -> $saved"
   fi
   run ln -s "$src" "$dest"
   say "link: $dest -> $src"

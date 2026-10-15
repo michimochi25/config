@@ -26,8 +26,9 @@ on its own.
 
 `install.sh` symlinks rather than copies, so anything changed later via
 `/config` lands back in the repo as a normal diff. Real files already at a
-destination are moved aside to `~/.claude/.dotfiles-backups/<timestamp>/<name>`
-first. Use `--dry-run` to preview.
+destination are moved aside to
+`~/.claude/.dotfiles-backups/<timestamp>/<path under ~>` first. Use `--dry-run`
+to preview.
 
 The shell files are the exception: a machine may already have its own, so
 instead of replacing them `install.sh` appends one guarded `source` line (once —
