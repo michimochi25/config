@@ -11,9 +11,10 @@ set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRATCH="$(mktemp -d)"
 trap 'rm -rf "$SCRATCH"' EXIT
-# Never let a test fall through to the real ~/.claude.
-unset CLAUDE_CONFIG_DIR
+# Never let a test fall through to the real ~/.claude, or real git config.
+unset CLAUDE_CONFIG_DIR XDG_CONFIG_HOME GIT_CONFIG_GLOBAL
 # Real binaries for checking results; install.sh itself only ever sees fakes.
+REAL_GIT="$(command -v git || true)"
 ZSH_BIN="$(command -v zsh || true)"
 
 PIN_CAVEMAN="$(sed -n 's/^CAVEMAN_VERSION="\(.*\)"/\1/p' "$REPO/install.sh")"
@@ -39,7 +40,7 @@ new_home() {
   H="$SCRATCH/home$((++N))"
   D="$H/dotfiles"
   mkdir -p "$D"
-  cp -r "$REPO/install.sh" "$REPO/claude" "$REPO/shell" "$D/"
+  cp -r "$REPO/install.sh" "$REPO/claude" "$REPO/shell" "$REPO/git" "$D/"
   SH=/bin/bash  # login shell install.sh sees; a case sets SH=/bin/zsh to switch
   fake_tools
 }
@@ -285,6 +286,48 @@ if [ -n "$ZSH_BIN" ]; then
   check "zsh: no errors while sourcing" test -z "$(zsh_source 2>&1 >/dev/null)"
 else
   echo "  skip  zsh sourcing (zsh not installed here; runs on macOS)"
+fi
+
+echo "git"
+
+if [ -n "$REAL_GIT" ]; then
+  # Read the resulting global config with real git. --includes: with --global,
+  # `git config` skips [include] unless asked (normal git commands follow it).
+  gitc() { HOME="$H" "$REAL_GIT" config --global --includes "$@"; }
+
+  new_home
+  install >/dev/null
+  check "fresh: ~/.gitconfig starts with the shared include" \
+    test "$(head -2 "$H/.gitconfig")" = "$(printf '[include]\n\tpath = %s' "$D/git/gitconfig")"
+  check "fresh: shared defaults apply" test "$(gitc init.defaultBranch)" = main
+  check "fresh: global ignore linked" \
+    test "$(readlink -f "$H/.config/git/ignore")" = "$(readlink -f "$D/git/ignore")"
+  HOME="$H" "$REAL_GIT" init -q "$H/r"
+  check "fresh: git init really uses the shared default branch" \
+    test "$(HOME="$H" "$REAL_GIT" -C "$H/r" symbolic-ref HEAD)" = refs/heads/main
+  check "fresh: .DS_Store ignored in any repo" \
+    env HOME="$H" "$REAL_GIT" -C "$H/r" check-ignore -q .DS_Store
+
+  new_home
+  printf '[user]\n\tname = Me\n[init]\n\tdefaultBranch = trunk\n' > "$H/.gitconfig"
+  mkdir -p "$H/.config/git" && echo old-ignore > "$H/.config/git/ignore"
+  install >/dev/null
+  check "existing: machine's own settings kept" test "$(gitc user.name)" = Me
+  check "existing: machine's settings win over shared ones" test "$(gitc init.defaultBranch)" = trunk
+  check "existing: shared settings fill the gaps" test "$(gitc pull.rebase)" = false
+  check "existing: old global ignore backed up" \
+    grep -qx old-ignore "$H"/.claude/.dotfiles-backups/*/.config/git/ignore
+  install >/dev/null
+  check "re-run: include not duplicated" test "$(count "$D/git/gitconfig" "$H/.gitconfig")" -eq 1
+  mv "$D" "$H/moved"
+  check "moved repo: git config still loads, silently" test "$(gitc user.name 2>&1)" = Me
+
+  new_home
+  install --dry-run >/dev/null
+  check "dry run: no ~/.gitconfig written" not test -e "$H/.gitconfig"
+  check "dry run: no global ignore linked" not test -e "$H/.config/git/ignore"
+else
+  echo "  skip  git (git not installed)"
 fi
 
 echo

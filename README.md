@@ -23,6 +23,8 @@ on its own.
 | `claude/mcp/servers.json` | merged into `~/.claude.json` | Local MCP servers |
 | `claude/local/caveman.env` | sourced from `~/.bashrc` / `~/.zshrc` | Local proxy env vars, only active when caveman is installed |
 | `shell/bash_aliases` | sourced from `~/.bash_aliases` / `~/.zshrc` | Shared shell aliases (plain POSIX, so zsh reads them too) |
+| `git/gitconfig` | included from the top of `~/.gitconfig` | Shared git defaults; the machine's own settings override them |
+| `git/ignore` | `~/.config/git/ignore` | Global gitignore (`.DS_Store`, local Claude settings) |
 
 `install.sh` symlinks rather than copies, so anything changed later via
 `/config` lands back in the repo as a normal diff. Real files already at a
@@ -42,6 +44,11 @@ Which file depends on your login shell (`$SHELL`):
 
 These files are loaded only by interactive shells, so a `claude` started from a
 script or cron gets neither the aliases nor the proxy.
+
+`~/.gitconfig` is handled the same way: an `[include]` is added at its top
+rather than the file being replaced, so each machine keeps its own `user.name`
+and `user.email` (e.g. a work email on the work machine), and anything it sets
+overrides the shared defaults.
 
 ## Tools: gstack and caveman
 

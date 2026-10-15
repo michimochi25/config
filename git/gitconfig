@@ -1,0 +1,14 @@
+# Shared git defaults. install.sh includes this from the top of ~/.gitconfig,
+# so anything ~/.gitconfig sets below the include wins — keep user.name and
+# user.email there, per machine.
+[push]
+	default = simple
+[pull]
+	rebase = false
+[init]
+	defaultBranch = main
+[core]
+	# Commit LF only, so files edited on Windows never land with CRLF.
+	autocrlf = input
+	# Commit messages and rebase todos open in VS Code; --wait blocks until the tab is closed.
+	editor = code --wait

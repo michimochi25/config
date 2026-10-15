@@ -1,0 +1,7 @@
+# Global gitignore, linked to ~/.config/git/ignore (git's default location).
+
+# Per-user Claude Code overrides
+**/.claude/settings.local.json
+
+# macOS Finder metadata
+.DS_Store

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 #
-# Apply this repo's Claude Code config to ~/.claude, plus shared shell aliases.
+# Apply this repo's Claude Code config to ~/.claude, plus shared shell aliases
+# and git defaults.
 #
 # Symlinks authored config into place so that edits made via /config flow back
 # into git. Existing real files are backed up, never overwritten in place.
 #
-#   ./install.sh            # settings, hooks, MCP, aliases, caveman + gstack
+#   ./install.sh            # settings, hooks, MCP, aliases, git, caveman + gstack
 #   ./install.sh --dry-run  # show what would happen, change nothing
 #
 set -euo pipefail
@@ -37,7 +38,7 @@ DRY_RUN=0
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
-    -h|--help) sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $arg (try --help)" >&2; exit 2 ;;
   esac
 done
@@ -85,6 +86,29 @@ ensure_sourced() {
   fi
   printf '\n# %s\n%s\n' "$label" "$line" >> "$file"
   say "added: $file now sources $src"
+}
+
+# Make gitconfig $1 include $2 (once). The include goes FIRST, because later
+# git settings win: name, email or anything else the machine sets below it
+# overrides ours. Git ignores an include whose file is gone, so a moved repo is harmless.
+ensure_included() {
+  local file="$1" src="$2" tmp
+  if grep -Fqs "$src" "$file"; then
+    say "ok:   $file already includes $src"
+    return
+  fi
+  if [ "$DRY_RUN" -eq 1 ]; then
+    say "would: add an include of $src to the top of $file"
+    return
+  fi
+  tmp="$(mktemp)"
+  printf '[include]\n\tpath = %s\n' "$src" > "$tmp"
+  if [ -f "$file" ]; then cat "$file" >> "$tmp"; fi
+  # Write back through the existing file, keeping its permissions (and a
+  # symlinked ~/.gitconfig stays a symlink).
+  cat "$tmp" > "$file"
+  rm -f "$tmp"
+  say "added: $file now includes $src"
 }
 
 # Like run(), but inside directory $1.
@@ -254,10 +278,17 @@ echo "caveman proxy"
 # installed, so on a machine without it Claude Code talks to the API directly.
 ensure_sourced "$SHELL_RC" "$REPO/claude/local/caveman.env" "Claude Code: local caveman proxy (dotfiles)"
 
+echo
+echo "git"
+ensure_included "$HOME/.gitconfig" "$REPO/git/gitconfig"
+run mkdir -p "$HOME/.config/git"
+link "$REPO/git/ignore" "$HOME/.config/git/ignore"
+
 cat <<EOF
 
 Done. Not handled here — see README:
   - plugins and synced skills install themselves on next \`claude\` launch
   - Node/npm and Bun are prerequisites, not installed by this script
+  - set your git name and email per machine: git config --global user.email ...
 EOF
 exit "$FAILED"
