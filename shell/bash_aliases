@@ -1,2 +1,5 @@
 alias gp='git push'
 alias gc='git commit'
+alias ls='ls -G'
+alias ll='ls -l'
+alias la='ls -la'
