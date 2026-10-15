@@ -13,6 +13,8 @@ SCRATCH="$(mktemp -d)"
 trap 'rm -rf "$SCRATCH"' EXIT
 # Never let a test fall through to the real ~/.claude.
 unset CLAUDE_CONFIG_DIR
+# Real binaries for checking results; install.sh itself only ever sees fakes.
+ZSH_BIN="$(command -v zsh || true)"
 
 PIN_CAVEMAN="$(sed -n 's/^CAVEMAN_VERSION="\(.*\)"/\1/p' "$REPO/install.sh")"
 PIN_GSTACK="$(sed -n 's/^GSTACK_REF="\([^"]*\)".*/\1/p' "$REPO/install.sh")"
@@ -38,6 +40,7 @@ new_home() {
   D="$H/dotfiles"
   mkdir -p "$D"
   cp -r "$REPO/install.sh" "$REPO/claude" "$REPO/shell" "$D/"
+  SH=/bin/bash  # login shell install.sh sees; a case sets SH=/bin/zsh to switch
   fake_tools
 }
 N=0
@@ -102,7 +105,7 @@ fi
 EOF
 }
 
-install() { HOME="$H" PATH="$H/bin:$SYSBIN" "$D/install.sh" "$@" 2>&1; }
+install() { HOME="$H" SHELL="$SH" PATH="$H/bin:$SYSBIN" "$D/install.sh" "$@" 2>&1; }
 count() { grep -c "$1" "$2" 2>/dev/null || true; }
 # settings.json still a symlink to the repo copy, with the repo copy unchanged.
 settings_intact() {
@@ -149,6 +152,18 @@ before="$(cat "$H/.bashrc")"
 install --dry-run >/dev/null
 check "dry run leaves ~/.bashrc unchanged" test "$before" = "$(cat "$H/.bashrc")"
 check "dry run creates no ~/.bash_aliases" test ! -e "$H/.bash_aliases"
+
+new_home; SH=/bin/zsh
+out="$(install)"
+check "zsh: aliases sourced from ~/.zshrc" \
+  grep -Fqx "[ -f \"$D/shell/bash_aliases\" ] && . \"$D/shell/bash_aliases\"" "$H/.zshrc"
+check "zsh: caveman.env sourced from ~/.zshrc" \
+  grep -Fqx "[ -f \"$D/claude/local/caveman.env\" ] && . \"$D/claude/local/caveman.env\"" "$H/.zshrc"
+check "zsh: bash files left alone" not test -e "$H/.bashrc" -o -e "$H/.bash_aliases"
+check "zsh: no ~/.bashrc note" not grep -q "doesn't load" <<<"$out"
+before="$(cat "$H/.zshrc")"
+install >/dev/null
+check "zsh: re-running is a no-op" test "$before" = "$(cat "$H/.zshrc")"
 
 echo "tools"
 
@@ -224,6 +239,9 @@ fake_caveman() {
   chmod +x "$H/pkg/dist/index.js"
   touch "$H/pkg/dist/native-hook-fast.js"
   ln -s "$H/pkg/dist/index.js" "$H/bin/caveman"
+  # caveman.env finds the hook through this link, as install.sh would make it.
+  mkdir -p "$H/.claude"
+  ln -s "$D/claude/hooks" "$H/.claude/hooks"
 }
 # Minimal PATH so a real caveman on this machine can't leak into the test.
 in_fake() { HOME="$H" PATH="$H/bin:/usr/bin:/bin" "$@"; }
@@ -247,6 +265,27 @@ for missing in proxy cli adapter; do
   check "no $missing: caveman.env leaves the API direct" test -z "$(env_url)"
   check "no $missing: hook still exits 0 (inert)" test "$(hook_exit)" = 0
 done
+
+new_home; fake_caveman
+rm "$H/.claude/hooks"
+err="$(in_fake bash -c '. "$1"' _ "$D/claude/local/caveman.env" 2>&1)"
+check "no ~/.claude/hooks link: caveman.env stays silent" test -z "$err"
+check "no ~/.claude/hooks link: caveman.env leaves the API direct" test -z "$(env_url)"
+
+# The point of the zsh support: both files must actually work when zsh sources them.
+if [ -n "$ZSH_BIN" ]; then
+  new_home; fake_caveman
+  zsh_source() {
+    in_fake "$ZSH_BIN" -fc '. "$1"; . "$2"; alias gp; print -r -- "${ANTHROPIC_BASE_URL:-}"' \
+      _ "$D/shell/bash_aliases" "$D/claude/local/caveman.env"
+  }
+  out="$(zsh_source 2>/dev/null)"
+  check "zsh: aliases load" grep -Fqx "gp='git push'" <<<"$out"
+  check "zsh: caveman.env sets the proxy URL" grep -Fqx "http://127.0.0.1:8787/w/claude" <<<"$out"
+  check "zsh: no errors while sourcing" test -z "$(zsh_source 2>&1 >/dev/null)"
+else
+  echo "  skip  zsh sourcing (zsh not installed here; runs on macOS)"
+fi
 
 echo
 echo "$PASS passed, $FAIL failed"

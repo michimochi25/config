@@ -26,6 +26,13 @@ GSTACK_REF="85fd9db554ae4aaaa6d356d2daf873121ee85bdd"  # v1.68.3.0
 GSTACK_REPO="https://github.com/garrytan/gstack.git"
 GSTACK_DIR="$CLAUDE_DIR/skills/gstack"
 
+# Where our source lines go, by login shell. macOS defaults to zsh, which never
+# reads ~/.bashrc; zsh has no ~/.bash_aliases convention, so both go in ~/.zshrc.
+case "${SHELL##*/}" in
+  zsh) SHELL_RC="$HOME/.zshrc";  ALIASES_RC="$HOME/.zshrc" ;;
+  *)   SHELL_RC="$HOME/.bashrc"; ALIASES_RC="$HOME/.bash_aliases" ;;
+esac
+
 DRY_RUN=0
 for arg in "$@"; do
   case "$arg" in
@@ -228,11 +235,12 @@ fi
 
 echo
 echo "shell aliases"
-ensure_sourced "$HOME/.bash_aliases" "$REPO/shell/bash_aliases" "Shared aliases (dotfiles)"
+ensure_sourced "$ALIASES_RC" "$REPO/shell/bash_aliases" "Shared aliases (dotfiles)"
 # Debian/Ubuntu's default ~/.bashrc loads ~/.bash_aliases; other setups may not,
 # in which case the aliases would silently never load. Comments are skipped:
 # Debian's bashrc also mentions .bash_aliases in a comment above the real load.
-if ! grep -v '^[[:space:]]*#' "$HOME/.bashrc" 2>/dev/null | grep -Fq ".bash_aliases"; then
+if [ "$ALIASES_RC" = "$HOME/.bash_aliases" ] \
+    && ! grep -v '^[[:space:]]*#' "$HOME/.bashrc" 2>/dev/null | grep -Fq ".bash_aliases"; then
   say "note: ~/.bashrc doesn't load ~/.bash_aliases — add this to it:"
   say "      [ -f ~/.bash_aliases ] && . ~/.bash_aliases"
 fi
@@ -241,7 +249,7 @@ echo
 echo "caveman proxy"
 # Safe to apply everywhere: caveman.env only redirects the API when caveman is
 # installed, so on a machine without it Claude Code talks to the API directly.
-ensure_sourced "$HOME/.bashrc" "$REPO/claude/local/caveman.env" "Claude Code: local caveman proxy (dotfiles)"
+ensure_sourced "$SHELL_RC" "$REPO/claude/local/caveman.env" "Claude Code: local caveman proxy (dotfiles)"
 
 cat <<EOF
 

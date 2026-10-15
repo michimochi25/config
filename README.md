@@ -21,25 +21,26 @@ on its own.
 | `claude/hooks/` | `~/.claude/hooks/` | Guarded wrappers for the caveman and gstack hooks, plus the turn-finished chime |
 | `claude/skills/` | `~/.claude/skills/<name>` | Standalone skills (currently `playwright-cli`) |
 | `claude/mcp/servers.json` | merged into `~/.claude.json` | Local MCP servers |
-| `claude/local/caveman.env` | sourced from `~/.bashrc` | Local proxy env vars, only active when caveman is installed |
-| `shell/bash_aliases` | sourced from `~/.bash_aliases` | Shared shell aliases |
+| `claude/local/caveman.env` | sourced from `~/.bashrc` / `~/.zshrc` | Local proxy env vars, only active when caveman is installed |
+| `shell/bash_aliases` | sourced from `~/.bash_aliases` / `~/.zshrc` | Shared shell aliases (plain POSIX, so zsh reads them too) |
 
 `install.sh` symlinks rather than copies, so anything changed later via
 `/config` lands back in the repo as a normal diff. Real files already at a
 destination are moved aside to `~/.claude/.dotfiles-backups/<timestamp>/<name>`
 first. Use `--dry-run` to preview.
 
-The two shell files are the exception: a machine may already have its own
-`~/.bashrc` and `~/.bash_aliases`, so instead of replacing them `install.sh`
-appends one guarded `source` line to each (once — re-running is a no-op; if the
-repo is moved, the old line just does nothing). Existing aliases are kept. An
-alias here overrides a same-named one earlier in `~/.bash_aliases`, since ours
-loads last in that file; anything defined later in `~/.bashrc` still wins over
-it.
+The shell files are the exception: a machine may already have its own, so
+instead of replacing them `install.sh` appends one guarded `source` line (once —
+re-running is a no-op; if the repo is moved, the old line just does nothing).
+Which file depends on your login shell (`$SHELL`):
 
-Both files are loaded only by interactive shells — the stock `~/.bashrc` exits
-early otherwise — so a `claude` started from a script or cron gets neither the
-aliases nor the proxy.
+- **bash** (Linux/WSL): aliases from `~/.bash_aliases`, caveman from `~/.bashrc`.
+  An alias here overrides a same-named one earlier in `~/.bash_aliases`;
+  anything defined later in `~/.bashrc` still wins over it.
+- **zsh** (macOS default): both from `~/.zshrc`. zsh never reads `~/.bashrc`.
+
+These files are loaded only by interactive shells, so a `claude` started from a
+script or cron gets neither the aliases nor the proxy.
 
 ## Tools: gstack and caveman
 
@@ -79,15 +80,16 @@ routing API traffic through the caveman proxy (see below).
 A machine with caveman installed routes all API traffic through a local proxy
 (`ANTHROPIC_BASE_URL=http://127.0.0.1:8787/w/claude`). That only works when the
 proxy can run, so it is kept out of `settings.json` and lives in
-`claude/local/caveman.env`, which `install.sh` sources from `~/.bashrc` on every
-machine. The file only sets the proxy URL when `claude/hooks/caveman --check`
-passes — i.e. the hook that starts the proxy is able to run — so a machine
-without caveman keeps talking to the API directly.
+`claude/local/caveman.env`, which `install.sh` sources from `~/.bashrc` (or
+`~/.zshrc`) on every machine. The file only sets the proxy URL when
+`claude/hooks/caveman --check` passes — i.e. the hook that starts the proxy is
+able to run — so a machine without caveman keeps talking to the API directly.
 
 `--check` needs `caveman` on `PATH`, and caveman is usually installed under nvm.
-So the caveman line in `~/.bashrc` must come **after** nvm's setup. If you
-install nvm after running `install.sh`, nvm's installer appends below our line
-and the proxy silently stays off — move our line to the end of `~/.bashrc`.
+So the caveman line in `~/.bashrc` / `~/.zshrc` must come **after** nvm's
+setup. If you install nvm after running `install.sh`, nvm's installer appends
+below our line and the proxy silently stays off — move our line to the end of
+the file.
 
 Check the proxy is listening with
 `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8787/` — any code
