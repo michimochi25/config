@@ -25,10 +25,12 @@ on its own.
 | `shell/bash_aliases` | sourced from `~/.bash_aliases` / `~/.zshrc` | Shared shell aliases (plain POSIX, so zsh reads them too) |
 | `git/gitconfig` | included from the top of `~/.gitconfig` | Shared git defaults; the machine's own settings override them |
 | `git/ignore` | `~/.config/git/ignore` | Global gitignore (`.DS_Store`, local Claude settings) |
+| `vscode/settings.json` | `~/Library/Application Support/Code/User/settings.json` | VS Code user settings — **macOS only** |
+| `vscode/extensions.txt` | installed with `code --install-extension` | VS Code extensions, missing ones only — **macOS only** |
 
 `install.sh` symlinks rather than copies, so anything changed later via
-`/config` lands back in the repo as a normal diff. Real files already at a
-destination are moved aside to
+`/config` or VS Code's Settings UI lands back in the repo as a normal diff. Real
+files already at a destination are moved aside to
 `~/.claude/.dotfiles-backups/<timestamp>/<path under ~>` first. Use `--dry-run`
 to preview.
 
@@ -49,6 +51,9 @@ script or cron gets neither the aliases nor the proxy.
 rather than the file being replaced, so each machine keeps its own `user.name`
 and `user.email` (e.g. a work email on the work machine), and anything it sets
 overrides the shared defaults.
+
+VS Code is only set up on macOS. On WSL its user settings live on the Windows
+side, where a Linux symlink can't reach, so `install.sh` skips it there.
 
 ## Tools: gstack and caveman
 

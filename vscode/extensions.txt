@@ -1,0 +1,30 @@
+# VS Code extensions install.sh installs on macOS (missing ones only).
+# One ID per line, lowercase. Find an ID with: code --list-extensions
+
+# AI
+anthropic.claude-code
+github.copilot-chat
+openai.chatgpt
+
+# Rust
+rust-lang.rust-analyzer
+
+# Python / Django
+ms-python.python
+ms-python.vscode-pylance
+ms-python.debugpy
+ms-python.vscode-python-envs
+kevinrose.vsc-python-indent
+njpwerner.autodocstring
+batisteo.vscode-django
+wholroyd.jinja
+
+# General
+esbenp.prettier-vscode
+timonwong.shellcheck
+ritwickdey.liveserver
+rangav.vscode-thunder-client
+
+# Remote: SSH hosts and Docker dev containers
+ms-vscode-remote.remote-ssh
+ms-vscode-remote.remote-containers

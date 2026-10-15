@@ -1,0 +1,78 @@
+// VS Code user settings. install.sh links this to
+// ~/Library/Application Support/Code/User/settings.json on macOS, so changes
+// made in the Settings UI show up here as a git diff.
+{
+  // Look
+  "workbench.colorTheme": "Dark Modern",
+  "editor.fontSize": 16,
+  "editor.minimap.enabled": false,
+  "editor.rulers": [79],
+  "editor.language.brackets": [],
+  "terminal.integrated.initialHint": false,
+  "workbench.editorAssociations": {
+    "*.md": "vscode.markdown.preview.editor"
+  },
+
+  // Formatting and indentation
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.detectIndentation": false,
+  "[html]": {
+    "editor.defaultFormatter": "vscode.html-language-features"
+  },
+  "[python]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true
+  },
+  "[typescript]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+  "[typescriptreact]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+  "files.associations": {
+    "*.tsx": "typescriptreact"
+  },
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "diffEditor.ignoreTrimWhitespace": false,
+
+  // Python
+  "python.analysis.autoFormatStrings": true,
+  "python.analysis.completeFunctionParens": true,
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.addImport.exactMatchOnly": true,
+  "python.REPL.enableREPLSmartSend": false,
+  "python.createEnvironment.trigger": "off",
+  "python.terminal.useEnvFile": true,
+
+  // Git
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "git.ignoreRebaseWarning": true,
+  "git.openRepositoryInParentFolders": "never",
+
+  // Remote (SSH hosts, dev containers)
+  "remote.autoForwardPortsSource": "hybrid",
+
+  // AI
+  "claudeCode.preferredLocation": "sidebar",
+  "claudeCode.hideOnboarding": true,
+  "github.copilot.nextEditSuggestions.enabled": true,
+  "chat.viewSessions.orientation": "stacked",
+
+  // Extensions
+  "liveServer.settings.donotVerifyTags": true,
+  "liveServer.settings.donotShowInfoMsg": true,
+  "extensions.ignoreRecommendations": true,
+  "extensions.autoCheckUpdates": false,
+
+  // Misc
+  "terminal.integrated.enableMultiLinePasteWarning": false,
+  "accessibility.signals.terminalBell": {
+    "sound": "on"
+  },
+  "security.workspace.trust.untrustedFiles": "open"
+}

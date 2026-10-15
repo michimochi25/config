@@ -16,6 +16,7 @@ unset CLAUDE_CONFIG_DIR XDG_CONFIG_HOME GIT_CONFIG_GLOBAL
 # Real binaries for checking results; install.sh itself only ever sees fakes.
 REAL_GIT="$(command -v git || true)"
 ZSH_BIN="$(command -v zsh || true)"
+VSCODE_SETTINGS="Library/Application Support/Code/User/settings.json"
 
 PIN_CAVEMAN="$(sed -n 's/^CAVEMAN_VERSION="\(.*\)"/\1/p' "$REPO/install.sh")"
 PIN_GSTACK="$(sed -n 's/^GSTACK_REF="\([^"]*\)".*/\1/p' "$REPO/install.sh")"
@@ -40,10 +41,11 @@ new_home() {
   H="$SCRATCH/home$((++N))"
   D="$H/dotfiles"
   mkdir -p "$D"
-  cp -r "$REPO/install.sh" "$REPO/claude" "$REPO/shell" "$REPO/git" "$D/"
+  cp -r "$REPO/install.sh" "$REPO/claude" "$REPO/shell" "$REPO/git" "$REPO/vscode" "$D/"
   SH=/bin/bash  # login shell install.sh sees; a case sets SH=/bin/zsh to switch
   fake_tools
 }
+mac() { echo Darwin > "$H/.fake-uname"; }
 N=0
 
 # Fake npm/git/bun in ~/bin. Each logs its calls to ~/calls. Touch ~/npm-fails or
@@ -93,7 +95,22 @@ elif [ "$1" = -C ]; then
 fi
 FAKE
   printf '#!/bin/sh\n' > "$H/bin/bun"
-  chmod +x "$H/bin/npm" "$H/bin/git" "$H/bin/bun"
+  # uname says Linux unless the case calls mac(), whatever this test runs on.
+  printf '#!/bin/sh\ncat "$HOME/.fake-uname" 2>/dev/null || echo Linux\n' > "$H/bin/uname"
+  # Fake VS Code CLI. Installing reads stdin, as a careless real one could, so a
+  # loop that forgets </dev/null loses the rest of its list. Touch ~/code-fails to fail.
+  cat > "$H/bin/code" <<'FAKE'
+#!/bin/bash
+echo "code $*" >> "$HOME/calls"
+case "$1" in
+  --list-extensions) cat "$HOME/.fake-code-exts" 2>/dev/null ;;
+  --install-extension)
+    cat >/dev/null
+    [ -e "$HOME/code-fails" ] && exit 1
+    echo "$2" >> "$HOME/.fake-code-exts" ;;
+esac
+FAKE
+  chmod +x "$H/bin/npm" "$H/bin/git" "$H/bin/bun" "$H/bin/uname" "$H/bin/code"
 }
 
 # Debian-style bashrc: mentions .bash_aliases in a comment AND really loads it.
@@ -329,6 +346,55 @@ if [ -n "$REAL_GIT" ]; then
 else
   echo "  skip  git (git not installed)"
 fi
+
+echo "vs code"
+
+new_home
+out="$(install)"
+check "linux: skipped with a note" grep -q "skip: macOS only" <<<"$out"
+check "linux: nothing created under ~/Library" not test -e "$H/Library"
+check "linux: code never called" not grep -qs '^code' "$H/calls"
+
+new_home; mac
+# Already installed, in different case: must be recognised and skipped.
+echo "MS-Python.Python" > "$H/.fake-code-exts"
+out="$(install)"; rc=$?
+check "mac: exits 0" test "$rc" -eq 0
+check "mac: settings.json linked" \
+  test "$(readlink -f "$H/$VSCODE_SETTINGS")" = "$(readlink -f "$D/vscode/settings.json")"
+want="$(grep -v -e '^#' -e '^$' "$D/vscode/extensions.txt" | grep -vx ms-python.python)"
+got="$(sed -n 's/^code --install-extension //p' "$H/calls")"
+check "mac: installs every listed extension it lacks, and only those" test "$got" = "$want"
+rm "$H/calls"
+install >/dev/null
+check "mac re-run: installs nothing" not grep -q -- --install-extension "$H/calls"
+
+new_home; mac
+mkdir -p "$H/.claude" "$(dirname "$H/$VSCODE_SETTINGS")"
+echo claude-own > "$H/.claude/settings.json"
+echo vscode-own > "$H/$VSCODE_SETTINGS"
+install >/dev/null
+check "mac: Claude's and VS Code's settings.json backed up without clobbering" \
+  bash -c 'grep -qx claude-own "$1"/*/.claude/settings.json && grep -qx vscode-own "$1"/*/"$2"' \
+  _ "$H/.claude/.dotfiles-backups" "$VSCODE_SETTINGS"
+
+new_home; mac
+rm "$H/bin/code"
+out="$(install)"; rc=$?
+check "mac, no code CLI: settings still linked" test -L "$H/$VSCODE_SETTINGS"
+check "mac, no code CLI: hint shown" grep -q "skip: extensions need" <<<"$out"
+check "mac, no code CLI: exits 0" test "$rc" -eq 0
+
+new_home; mac
+touch "$H/code-fails"
+out="$(install)"; rc=$?
+check "mac, install fails: exits 1" test "$rc" -eq 1
+check "mac, install fails: reported" grep -q "fail: anthropic.claude-code" <<<"$out"
+
+new_home; mac
+install --dry-run >/dev/null
+check "mac dry run: settings.json not linked" not test -e "$H/$VSCODE_SETTINGS"
+check "mac dry run: no extension installed" not grep -qs -- --install-extension "$H/calls"
 
 echo
 echo "$PASS passed, $FAIL failed"

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# Apply this repo's Claude Code config to ~/.claude, plus shared shell aliases
-# and git defaults.
+# Apply this repo's Claude Code config to ~/.claude, plus shared shell aliases,
+# git defaults and (on macOS) VS Code settings and extensions.
 #
 # Symlinks authored config into place so that edits made via /config flow back
 # into git. Existing real files are backed up, never overwritten in place.
 #
-#   ./install.sh            # settings, hooks, MCP, aliases, git, caveman + gstack
+#   ./install.sh            # settings, hooks, MCP, aliases, git, VS Code, caveman + gstack
 #   ./install.sh --dry-run  # show what would happen, change nothing
 #
 set -euo pipefail
@@ -109,6 +109,35 @@ ensure_included() {
   cat "$tmp" > "$file"
   rm -f "$tmp"
   say "added: $file now includes $src"
+}
+
+# Install each extension in vscode/extensions.txt that VS Code doesn't have yet.
+install_vscode_extensions() {
+  local have ext rc=0
+  if ! command -v code >/dev/null; then
+    say "skip: extensions need the \`code\` command — install VS Code (brew bundle), then re-run"
+    return
+  fi
+  # IDs are case-insensitive; the list is kept lowercase to match.
+  have="$(code --list-extensions | tr '[:upper:]' '[:lower:]')"
+  while IFS= read -r ext || [ -n "$ext" ]; do
+    case "$ext" in ''|'#'*) continue ;; esac
+    # Here-string, not a pipe: with pipefail, grep -q quitting early can fail the pipe.
+    if grep -Fqx "$ext" <<<"$have"; then
+      continue
+    fi
+    if [ "$DRY_RUN" -eq 1 ]; then
+      say "would: code --install-extension $ext"
+    # </dev/null: `code` must not swallow the rest of the list this loop reads on stdin.
+    elif code --install-extension "$ext" </dev/null >/dev/null; then
+      say "added: $ext"
+    else
+      say "fail: $ext"
+      rc=1
+    fi
+  done < "$REPO/vscode/extensions.txt"
+  [ "$rc" -eq 0 ] && say "ok:   extensions current"
+  return "$rc"
 }
 
 # Like run(), but inside directory $1.
@@ -283,6 +312,19 @@ echo "git"
 ensure_included "$HOME/.gitconfig" "$REPO/git/gitconfig"
 run mkdir -p "$HOME/.config/git"
 link "$REPO/git/ignore" "$HOME/.config/git/ignore"
+
+# Only on macOS: there VS Code is a local app. On WSL its user settings live on
+# the Windows side, out of reach, and `code` only manages the WSL server's extensions.
+echo
+echo "vs code"
+if [ "$(uname -s)" = Darwin ]; then
+  VSCODE_USER="$HOME/Library/Application Support/Code/User"
+  run mkdir -p "$VSCODE_USER"
+  link "$REPO/vscode/settings.json" "$VSCODE_USER/settings.json"
+  install_vscode_extensions || { say "fail: some VS Code extensions failed to install (see above)"; FAILED=1; }
+else
+  say "skip: macOS only (on WSL, settings live in Windows' VS Code)"
+fi
 
 cat <<EOF
 
