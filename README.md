@@ -1,16 +1,18 @@
 # config
 
-Portable Claude Code configuration and shell aliases, so the same setup works
-on a personal and a work machine.
+Portable Claude Code configuration, shell aliases, git defaults and VS Code
+settings, so the same setup works on a personal and a work machine — Linux/WSL
+or macOS.
 
 ```bash
-git clone <this-repo> ~/projects/dotfiles
+git clone https://github.com/michimochi25/dotfiles.git ~/projects/dotfiles
 cd ~/projects/dotfiles
 ./install.sh
 ```
 
 Then launch `claude` once — it pulls down the plugins and account-synced skills
-on its own.
+on its own. On a fresh Mac, follow [Setting up a new Mac](#setting-up-a-new-mac)
+instead: the order matters.
 
 ## What's in here
 
@@ -27,6 +29,7 @@ on its own.
 | `git/ignore` | `~/.config/git/ignore` | Global gitignore (`.DS_Store`, local Claude settings) |
 | `vscode/settings.json` | `~/Library/Application Support/Code/User/settings.json` | VS Code user settings — **macOS only** |
 | `vscode/extensions.txt` | installed with `code --install-extension` | VS Code extensions, missing ones only — **macOS only** |
+| `Brewfile` | run by hand: `brew bundle` | macOS CLI tools and apps |
 
 `install.sh` symlinks rather than copies, so anything changed later via
 `/config` or VS Code's Settings UI lands back in the repo as a normal diff. Real
@@ -112,3 +115,62 @@ The caveman *hooks* stay in `settings.json` unconditionally. They route through
 `claude/hooks/caveman`, which resolves the CLI adapter from whatever Node the
 `caveman` shim lives under and exits 0 when caveman isn't installed — so no Node
 version is pinned and the entries are inert without it.
+
+## Setting up a new Mac
+
+Do these in order — each step needs the ones before it. Open a **new terminal**
+whenever a step edits your shell startup files.
+
+1. **Command Line Tools** (git, python3, a C compiler): `xcode-select --install`
+2. **Homebrew**: install from <https://brew.sh>, then run the commands it prints
+   under "Next steps" (they add `brew` to `~/.zprofile`). Skip them and `brew`
+   isn't on PATH.
+3. **This repo**, over HTTPS since there's no SSH key yet:
+   `git clone https://github.com/michimochi25/dotfiles.git ~/projects/dotfiles`
+4. **Tools and apps**: `brew bundle --file ~/projects/dotfiles/Brewfile`
+   (Docker Desktop asks for your password).
+5. **nvm + Node** — before `install.sh`, which installs caveman with npm and
+   must put its line in `~/.zshrc` *below* nvm's:
+   ```bash
+   touch ~/.zshrc   # nvm's installer only edits a startup file that already exists
+   # install nvm: https://github.com/nvm-sh/nvm#installing-and-updating — then, in a new terminal:
+   nvm install 20 && nvm alias default 20
+   npm install -g vercel @playwright/cli
+   ```
+6. **Rust**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+7. **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash`
+8. **This config**, then prove it works on this machine:
+   ```bash
+   cd ~/projects/dotfiles && ./install.sh && ./tests/install_test.sh
+   ```
+   If caveman has no macOS build, `install.sh` reports a caveman failure and
+   exits 1; everything else is still installed and Claude Code talks to the API
+   directly (the proxy stays off).
+9. **Per-machine identity** (never in this repo):
+   ```bash
+   git config --global user.name "Your Name"
+   git config --global user.email you@example.com
+   gh auth login && gh auth setup-git        # git over HTTPS uses gh's login
+
+   ssh-keygen -t ed25519                     # a new key per machine; don't copy old ones
+   ssh-add --apple-use-keychain ~/.ssh/id_ed25519
+   gh ssh-key add ~/.ssh/id_ed25519.pub
+   ```
+   Add to `~/.ssh/config` so the key loads from the Keychain after a reboot:
+   ```
+   Host *
+     AddKeysToAgent yes
+     UseKeychain yes
+     IdentityFile ~/.ssh/id_ed25519
+   ```
+   Then put the public key on any other SSH host you use
+   (`ssh-copy-id <user>@<host>`), open Docker Desktop once to finish its setup,
+   and run `claude` to log in.
+10. **Check**, in a new terminal:
+    - `alias gp` prints `gp='git push'`
+    - `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8787/` after
+      starting `claude` — any code but `000` means the caveman proxy is up
+    - change any setting in VS Code's Settings UI, then run
+      `ls -l ~/Library/Application\ Support/Code/User/settings.json` — it should
+      still be a link (`->`). If VS Code replaced it with a real file, re-run
+      `install.sh` (it backs that file up and relinks) and copy your change across.
