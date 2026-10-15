@@ -5,8 +5,8 @@ settings, so the same setup works on a personal and a work machine — Linux/WSL
 or macOS.
 
 ```bash
-git clone https://github.com/michimochi25/dotfiles.git ~/projects/dotfiles
-cd ~/projects/dotfiles
+git clone https://github.com/michimochi25/config.git ~/config
+cd ~/config
 ./install.sh
 ```
 
@@ -126,8 +126,8 @@ whenever a step edits your shell startup files.
    under "Next steps" (they add `brew` to `~/.zprofile`). Skip them and `brew`
    isn't on PATH.
 3. **This repo**, over HTTPS since there's no SSH key yet:
-   `git clone https://github.com/michimochi25/dotfiles.git ~/projects/dotfiles`
-4. **Tools and apps**: `brew bundle --file ~/projects/dotfiles/Brewfile`
+   `git clone https://github.com/michimochi25/config.git ~/config`
+4. **Tools and apps**: `brew bundle --file ~/config/Brewfile`
    (Docker Desktop asks for your password).
 5. **nvm + Node** — before `install.sh`, which installs caveman with npm and
    must put its line in `~/.zshrc` *below* nvm's:
@@ -144,7 +144,7 @@ whenever a step edits your shell startup files.
 7. **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash`
 8. **This config**, then prove it works on this machine:
    ```bash
-   cd ~/projects/dotfiles && ./install.sh && ./tests/install_test.sh
+   cd ~/config && ./install.sh && ./tests/install_test.sh
    ```
    If caveman has no macOS build, `install.sh` reports a caveman failure and
    exits 1; everything else is still installed and Claude Code talks to the API

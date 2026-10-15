@@ -1,5 +1,5 @@
 # macOS tools and apps. Install or update everything with:
-#   brew bundle --file ~/projects/dotfiles/Brewfile
+#   brew bundle --file ~/config/Brewfile
 #
 # Deliberately NOT here — each uses its official installer (see README):
 #   nvm + Node   nvm doesn't officially support a Homebrew install (it works; see README)
