@@ -3,3 +3,19 @@ alias gc='git commit'
 alias ls='ls -G'
 alias ll='ls -l'
 alias la='ls -la'
+alias cls='clear'
+
+# `source` the rc file of whichever shell is running
+if [ -n "$ZSH_VERSION" ]; then
+  alias reload='source ~/.zshrc'
+else
+  alias reload='source ~/.bashrc'
+fi
+
+# macOS only: `open -a` and these paths don't exist elsewhere
+if [ "$(uname)" = Darwin ]; then
+  alias proj='cd ~/Documents/Projects'
+  alias chrome='open -a "Google Chrome"'
+  alias vscode='open -a "Visual Studio Code"'
+  alias xcode='open -a "Xcode"'
+fi

@@ -24,7 +24,7 @@ instead: the order matters.
 | `claude/skills/` | `~/.claude/skills/<name>` | Standalone skills (currently `playwright-cli`) |
 | `claude/mcp/servers.json` | merged into `~/.claude.json` | Local MCP servers |
 | `claude/local/caveman.env` | sourced from `~/.bashrc` / `~/.zshrc` | Local proxy env vars, only active when caveman is installed |
-| `shell/bash_aliases` | sourced from `~/.bash_aliases` / `~/.zshrc` | Shared shell aliases (plain POSIX, so zsh reads them too) |
+| `shell/bash_aliases` | sourced from `~/.bash_aliases` / `~/.zshrc` | Shared shell aliases (plain POSIX, so zsh reads them too); macOS-only ones are behind a `uname` check |
 | `git/gitconfig` | included from the top of `~/.gitconfig` | Shared git defaults; the machine's own settings override them |
 | `git/ignore` | `~/.config/git/ignore` | Global gitignore (`.DS_Store`, local Claude settings) |
 | `vscode/settings.json` | `~/Library/Application Support/Code/User/settings.json` | VS Code user settings — **macOS only** |
@@ -129,7 +129,29 @@ whenever a step edits your shell startup files.
    `git clone https://github.com/michimochi25/config.git ~/config`
 4. **Tools and apps**: `brew bundle --file ~/config/Brewfile`
    (Docker Desktop asks for your password).
-5. **nvm + Node** — before `install.sh`, which installs caveman with npm and
+5. **Oh My Zsh** — its installer writes a fresh `~/.zshrc` (the old one is kept
+   as `~/.zshrc.pre-oh-my-zsh`), so do this before anything else edits that file:
+   ```bash
+   sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+   ```
+   Then make the top of `~/.zshrc` look like this. Docker's completions must be
+   on `fpath` before Oh My Zsh loads, because it runs `compinit` itself:
+   ```bash
+   eval "$(/opt/homebrew/bin/brew shellenv)"
+
+   # Docker CLI completions
+   fpath=($HOME/.docker/completions $fpath)
+
+   # Oh My Zsh
+   export ZSH="$HOME/.oh-my-zsh"
+   ZSH_THEME="cloud"
+   plugins=(git)
+   source $ZSH/oh-my-zsh.sh
+
+   export CLICOLOR=1
+   export LSCOLORS=Gxfxcxdxbxegedabagacad
+   ```
+6. **nvm + Node** — before `install.sh`, which installs caveman with npm and
    must put its line in `~/.zshrc` *below* nvm's:
    ```bash
    touch ~/.zshrc   # nvm's installer only edits a startup file that already exists
@@ -139,17 +161,24 @@ whenever a step edits your shell startup files.
    ```
    Homebrew's `nvm` (`brew install nvm`) also works, though nvm doesn't
    officially support it: it edits no startup file, so add the lines from
-   `brew info nvm` to `~/.zshrc` yourself, still above this repo's lines.
-6. **Rust**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-7. **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash`
-8. **This config**, then prove it works on this machine:
+   `brew info nvm` to `~/.zshrc` yourself, still above this repo's lines:
+   ```bash
+   export NVM_DIR="$HOME/.nvm"
+   [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
+   [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
+   ```
+7. **Rust**: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+8. **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash`. If `claude`
+   isn't found afterwards, add `export PATH="$HOME/.local/bin:$PATH"` as the last
+   line of `~/.zshrc`.
+9. **This config**, then prove it works on this machine:
    ```bash
    cd ~/config && ./install.sh && ./tests/install_test.sh
    ```
    If caveman has no macOS build, `install.sh` reports a caveman failure and
    exits 1; everything else is still installed and Claude Code talks to the API
    directly (the proxy stays off).
-9. **Per-machine identity** (never in this repo):
+10. **Per-machine identity** (never in this repo):
    ```bash
    git config --global user.name "Your Name"
    git config --global user.email you@example.com
@@ -169,7 +198,7 @@ whenever a step edits your shell startup files.
    Then put the public key on any other SSH host you use
    (`ssh-copy-id <user>@<host>`), open Docker Desktop once to finish its setup,
    and run `claude` to log in.
-10. **Check**, in a new terminal:
+11. **Check**, in a new terminal:
     - `alias gp` prints `gp='git push'`
     - `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8787/` after
       starting `claude` — any code but `000` means the caveman proxy is up
